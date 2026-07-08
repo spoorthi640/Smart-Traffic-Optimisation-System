@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Traffic Optimization System</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="./css/style.css">
+
+    <style>
+        /* Loading Overlay for API calls */
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.85);
+            z-index: 9999;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            color: #fff;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: #3b82f6;
+            border-radius: 50%;
+            width: 50px; height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #loading-text { font-size: 1.2rem; font-weight: 500; }
+        #loading-subtext { font-size: 0.9rem; color: #94a3b8; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div id="loading-text">Fetching real map coordinates...</div>
+        <div id="loading-subtext">Geocoding APIs may take a few seconds to prevent rate-limiting.</div>
+    </div>
+
+    <!-- Fullscreen Map Container -->
+    <div id="map"></div>
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Main Glassmorphism UI Panel -->
+    <div class="glass-panel main-sidebar">
+        <header>
+            <h1><i class="fa-solid fa-network-wired"></i> Smart Traffic System</h1>
+            <p>Algorithm Analysis & Optimization</p>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs">
+            <button class="tab-btn active" data-target="simulation">Simulation</button>
+            <button class="tab-btn" data-target="algorithms">Algorithms</button>
+            <button class="tab-btn" data-target="analytics">Analytics</button>
+            <button class="tab-btn" data-target="demo">Demo</button>
+        </nav>
+
+        <!-- Tab Content Containers -->
+        <div class="tab-content active" id="simulation">
+            <div class="module-section">
+                <h3>Graph Generation (Real Maps)</h3>
+                <p class="text-small">Enter real cities. We use OpenStreetMap API to find them!</p>
+                <input type="text" id="node-input" placeholder="e.g. Hyderabad, Visakhapatnam, Vijayawada" value="Hyderabad, Visakhapatnam, Vijayawada, Warangal, Tirupati">
+                <div class="button-group">
+                    <button id="btn-generate-sparse" class="action-btn">Sparse Graph</button>
+                    <button id="btn-generate-dense" class="action-btn">Dense Graph</button>
+                </div>
+            </div>
+
+            <div class="module-section">
+                <h3>Traffic Control</h3>
+                <div class="traffic-modes">
+                    <button class="mode-btn active" data-mode="normal">Normal</button>
+                    <button class="mode-btn" data-mode="morning">Morning Rush</button>
+                    <button class="mode-btn" data-mode="evening">Evening Rush</button>
+                    <button class="mode-btn" data-mode="rain">Rain Mode</button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <p class="text-small" style="margin-bottom: 5px;">Time Machine Slider: <span id="time-display" style="color:var(--accent-blue);font-weight:bold;">12:00</span></p>
+                    <input type="range" id="timeline-slider" min="0" max="24" value="12" style="width:100%; cursor:pointer;">
+                </div>
+            </div>
+            
+            <div class="module-section">
+                <h3>Live Analytics</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-nodes">0</span>
+                        <span class="stat-label">Nodes</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-edges">0</span>
+                        <span class="stat-label">Roads</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-vehicles">0</span>
+                        <span class="stat-label">Vehicles</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-congestion">Low</span>
+                        <span class="stat-label">Traffic</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="algorithms">
+            <div class="module-section">
+                <h3>Path Optimization</h3>
+                <div class="input-group">
+                    <select id="algo-start-node"></select>
+                    <i class="fa-solid fa-arrow-right"></i>
+                    <select id="algo-end-node"></select>
+                </div>
+                <select id="algo-selector" class="dropdown">
+                    <option value="dijkstra">Dijkstra's Algorithm</option>
+                    <option value="bellman">Bellman-Ford</option>
+                    <option value="astar">A* Search</option>
+                    <option value="floyd">Floyd-Warshall (All Pairs)</option>
+                </select>
+                <button id="btn-run-algo" class="action-btn primary-btn">Find Shortest Path</button>
+            </div>
+            
+            <div class="module-section">
+                <h3>Execution Details</h3>
+                <div id="algo-results" class="results-box">
+                    <p class="placeholder-text">Run an algorithm to see results.</p>
+                </div>
+            </div>
+
+            <div class="module-section">
+                <h3>Advanced Routing & AI</h3>
+                <button id="btn-tsp" class="action-btn">TSP Logistics Route</button>
+                <button id="btn-aco" class="action-btn highlight-btn" style="margin-top: 8px;">Run Ant Colony (AI)</button>
+                <button id="btn-adaptive" class="action-btn" style="margin-top: 8px;">Enable Adaptive Rerouting</button>
+            </div>
+        </div>
+
+        <div class="tab-content" id="analytics">
+            <div class="module-section">
+                <h3>Scaling Analysis</h3>
+                <p class="text-small">Analyze algorithm complexity with increasing graph size.</p>
+                <button id="btn-run-scaling" class="action-btn primary-btn">Run Scaling Test</button>
+                <div class="chart-container">
+                    <canvas id="scalingChart"></canvas>
+                </div>
+            </div>
+
+            <div class="module-section">
+                <h3>Monte Carlo Simulation</h3>
+                <button id="btn-run-monte-carlo" class="action-btn">Run 100 Simulations</button>
+                <div id="monte-carlo-results" class="results-box"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="demo">
+            <div class="module-section">
+                <h3>Algorithm Race Mode</h3>
+                <p class="text-small">Compare Dijkstra, Bellman-Ford, and A* simultaneously.</p>
+                <button id="btn-run-race" class="action-btn primary-btn">Start Race</button>
+                <div id="race-results" class="results-box"></div>
+            </div>
+
+            <div class="module-section">
+                <h3>Negative Weight Demo</h3>
+                <button id="btn-demo-negative" class="action-btn danger-btn">Simulate Negative Cycle</button>
+                <p class="text-small mt-1">Shows Dijkstra failure vs Bellman-Ford correctness.</p>
+            </div>
+
+            <div class="module-section">
+                <h3>Smart City Control</h3>
+                <button id="btn-smart-signals" class="action-btn highlight-btn">Optimize Traffic Signals</button>
+                <button id="btn-heatmap" class="action-btn">Toggle Heatmap</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Consolidated Application Logic -->
+    <script src="./js/app.js"></script>
+</body>
+</html>
